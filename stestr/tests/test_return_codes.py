@@ -56,9 +56,11 @@ class TestReturnCodes(base.TestCase):
         subprocess.call('stestr init', shell=True)
 
     def assertRunExit(self, cmd, expected, subunit=False):
+        env = os.environ
         p = subprocess.Popen(
             "%s" % cmd, shell=True,
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            env=env)
         out, err = p.communicate()
 
         if not subunit:
@@ -107,8 +109,10 @@ class TestReturnCodes(base.TestCase):
         self.assertRunExit('stestr', 2)
 
     def _get_cmd_stdout(self, cmd):
+        env = os.environ
         p = subprocess.Popen(cmd, shell=True,
-                             stdout=subprocess.PIPE)
+                             stdout=subprocess.PIPE,
+                             env=env)
         out = p.communicate()
         self.assertEqual(0, p.returncode)
         return out

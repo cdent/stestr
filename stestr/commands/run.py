@@ -96,6 +96,8 @@ def set_cli_opts(parser):
                              ' if subunit-trace output is enabled. (this is '
                              'the default). If subunit-trace is disable this '
                              ' does nothing.')
+    parser.add_argument('--dynamic', action='store_true', default=False,
+                        help='Enable the EXPERIMENTAL dynamic scheduler')
 
 
 def get_cli_help():
@@ -128,7 +130,8 @@ def run_command(config='.stestr.conf', repo_type='file',
                 analyze_isolation=False, isolated=False, worker_path=None,
                 blacklist_file=None, whitelist_file=None, black_regex=None,
                 no_discover=False, random=False, combine=False, filters=None,
-                pretty_out=True, color=False, stdout=sys.stdout):
+                pretty_out=True, color=False, stdout=sys.stdout,
+                dynamic=False):
     """Function to execute the run command
 
     This function implements the run command. It will run the tests specified
@@ -184,6 +187,7 @@ def run_command(config='.stestr.conf', repo_type='file',
     :param bool color: Enable colorized output in subunit-trace
     :param file stdout: The file object to write all output to. By default this
         is sys.stdout
+    :param bool dynamic: Enable dynamic scheduling
 
     :return return_code: The exit code for the command. 0 for success and > 0
         for failures.
@@ -201,6 +205,9 @@ def run_command(config='.stestr.conf', repo_type='file',
             exit(1)
         repo = util.get_repo_initialise(repo_type, repo_url)
     combine_id = None
+    if dynamic:
+        print("WARNING: The dynamic scheduler is still experimental. You might"
+              " encounter issues while using it")
     if combine:
         latest_id = repo.latest_id()
         combine_id = six.text_type(latest_id)
@@ -268,7 +275,7 @@ def run_command(config='.stestr.conf', repo_type='file',
             repo_url=repo_url, serial=serial, worker_path=worker_path,
             concurrency=concurrency, blacklist_file=blacklist_file,
             black_regex=black_regex, top_dir=top_dir, test_path=test_path,
-            randomize=random)
+            randomize=random, dynamic=dynamic)
         if isolated:
             result = 0
             cmd.setUp()
@@ -295,7 +302,8 @@ def run_command(config='.stestr.conf', repo_type='file',
                                         repo_url=repo_url,
                                         pretty_out=pretty_out,
                                         color=color,
-                                        stdout=stdout)
+                                        stdout=stdout,
+                                        dynamic=dynamic)
                 if run_result > result:
                     result = run_result
             return result
@@ -308,7 +316,8 @@ def run_command(config='.stestr.conf', repo_type='file',
                               repo_url=repo_url,
                               pretty_out=pretty_out,
                               color=color,
-                              stdout=stdout)
+                              stdout=stdout,
+                              dynamic=dynamic)
     else:
         # Where do we source data about the cause of conflicts.
         # XXX: Should instead capture the run id in with the failing test
@@ -453,14 +462,21 @@ def _prior_tests(self, run, failing_id):
 
 def _run_tests(cmd, failing, analyze_isolation, isolated, until_failure,
                subunit_out=False, combine_id=None, repo_type='file',
-               repo_url=None, pretty_out=True, color=False, stdout=sys.stdout):
+               repo_url=None, pretty_out=True, color=False, stdout=sys.stdout,
+               dynamic=False):
     """Run the tests cmd was parameterised with."""
     cmd.setUp()
     try:
         def run_tests():
-            run_procs = [('subunit',
-                          output.ReturnCodeToSubunit(
-                              proc)) for proc in cmd.run_tests()]
+            if not dynamic or cmd.concurrency == 1:
+                run_procs = [('subunit',
+                              output.ReturnCodeToSubunit(
+                                  proc)) for proc in cmd.run_tests()]
+            else:
+                run_procs = [('subunit',
+                              output.ReturnCodeToSubunit(
+                                  os.fdopen(proc['stream']),
+                                  proc['proc'])) for proc in cmd.run_tests()]
             partial = False
             if (failing or analyze_isolation or isolated):
                 partial = True
@@ -515,4 +531,5 @@ def run(arguments):
         worker_path=args.worker_path, blacklist_file=args.blacklist_file,
         whitelist_file=args.whitelist_file, black_regex=args.black_regex,
         no_discover=args.no_discover, random=args.random, combine=args.combine,
-        filters=filters, pretty_out=pretty_out, color=args.color)
+        filters=filters, pretty_out=pretty_out, color=args.color,
+        dynamic=args.dynamic)
