@@ -21,6 +21,8 @@ import tempfile
 import six
 from six import StringIO
 
+from stestr.commands import list as list_cmd
+from stestr.commands import run
 from stestr.tests import base
 
 DEVNULL = open(os.devnull, 'wb')
@@ -136,3 +138,37 @@ class TestReturnCodes(base.TestCase):
         # The test results from running the same tests twice with combine
         # should return a test count 2x as big at the end of the run
         self.assertEqual(test_count * 2, combine_test_count)
+
+    def test_parallel_passing_from_func(self):
+
+        self.assertEqual(0, run.run_command(filters=['passing']))
+
+    def test_parallel_passing_bad_regex_from_func(self):
+        self.assertEqual(1, run.run_command(filters=['bad.regex.foobar']))
+
+    def test_parallel_fails_from_func(self):
+        self.assertEqual(1, run.run_command())
+
+    def test_serial_passing_from_func(self):
+        self.assertEqual(0, run.run_command(filters=['passing'], serial=True))
+
+    def test_serial_fails_from_func(self):
+        self.assertEqual(1, run.run_command(serial=True))
+
+    def test_serial_subunit_passing_from_func(self):
+        self.assertEqual(0, run.run_command(subunit_out=True, serial=True,
+                                            filters=['passing']))
+
+    def test_parallel_subunit_passing_from_func(self):
+        self.assertEqual(0, run.run_command(subunit_out=True,
+                                            filters=['passing']))
+
+    def test_until_failure_fails_from_func(self):
+        self.assertEqual(1, run.run_command(until_failure=True))
+
+    def test_until_failure_with_subunit_fails_from_func(self):
+        self.assertEqual(1, run.run_command(until_failure=True,
+                                            subunit_out=True))
+
+    def test_list_from_func(self):
+        self.assertEqual(0, list_cmd.list_command())
