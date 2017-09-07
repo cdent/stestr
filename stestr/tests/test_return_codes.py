@@ -25,8 +25,6 @@ from stestr.commands import list as list_cmd
 from stestr.commands import run
 from stestr.tests import base
 
-DEVNULL = open(os.devnull, 'wb')
-
 
 class TestReturnCodes(base.TestCase):
     def setUp(self):
